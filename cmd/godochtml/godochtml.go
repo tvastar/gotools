@@ -41,6 +41,7 @@ func docgen() error {
 		if err != nil {
 			return err
 		}
+
 		fmt.Println("File: " + p.ImportPath)
 		if err := dochtml.Write(os.Stdout, p); err != nil {
 			return err
