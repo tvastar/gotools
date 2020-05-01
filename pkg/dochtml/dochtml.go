@@ -4,6 +4,8 @@ package dochtml
 import (
 	"bytes"
 	"go/doc"
+	"go/format"
+	"go/token"
 	"html/template"
 	"io"
 
@@ -31,11 +33,24 @@ func unsafeFunctions() map[string]interface{} {
 	}
 }
 
+func astFunctions() map[string]interface{} {
+	return map[string]interface{}{
+		"text": func(node interface{}) string {
+			var buf bytes.Buffer
+			if err := format.Node(&buf, token.NewFileSet(), node); err != nil {
+				return err.Error()
+			}
+			return buf.String()
+		},
+	}
+}
+
 // Write generataes the html for a specific package.
 func Write(w io.Writer, p *doc.Package) error { //nolint: funlen
 	fns := map[string]interface{}{
-		"sprig":  func() interface{} { return sprig.FuncMap() },
+		"ast":    astFunctions,
 		"doc":    docFunctions,
+		"sprig":  func() interface{} { return sprig.FuncMap() },
 		"unsafe": unsafeFunctions,
 	}
 	exec := func(t *template.Template, err error) error {
@@ -58,13 +73,18 @@ func Write(w io.Writer, p *doc.Package) error { //nolint: funlen
   </head>
   <body>
     <h1>Package {{ .Name }}</h1>
-    <div id="toc">
-      <dl><dd><code>import "{{ .ImportPath }}"</code></dd></dl>
-      <dl><dd><a href="#overview" class="overviewLink">Overview</a></dd></dl>
-    </div>
-    <div id="overview">
-      <h2 class="toggle" title="Click to hide Overview section">Overview ▾</h2>
+    <div id="pkg-overview">
       <p>{{ call unsafe.html $overview }}</p>
+    </div>
+    <div id="pkg-index">
+      <h2>Index</h2>
+      <ul>
+      {{ if .Consts }}<li><a href="#pkg-consts">Constants</a></li>{{ end }}
+      {{ if .Vars }}<li><a href="#pkg-vars">Variables</a></li>{{ end }}
+      {{ range .Funcs }}<li><a href="#{{.Name}}">{{ call ast.text .Decl }}</a></li>
+      {{ end }}{{ range .Types }}<li><a href="#{{.Name}}">type {{ .Name }}</a></li>
+      {{ end }}
+      </ul>
     </div>
   </body>
 </html>
