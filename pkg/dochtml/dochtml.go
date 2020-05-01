@@ -25,11 +25,11 @@ func docFunctions() map[string]interface{} {
 
 func unsafeFunctions() map[string]interface{} {
 	return map[string]interface{}{
-		"html": func(s string) interface{} { return template.HTML(s) },
-		"js":   func(s string) interface{} { return template.JS(s) },
+		"html": func(s string) interface{} { return template.HTML(s) }, //nolint: gosec
+		"js":   func(s string) interface{} { return template.JS(s) },   //nolint: gosec
 		"css":  func(s string) interface{} { return template.CSS(s) },
-		"url":  func(s string) interface{} { return template.URL(s) },
-		"attr": func(s string) interface{} { return template.HTMLAttr(s) },
+		"url":  func(s string) interface{} { return template.URL(s) },      //nolint: gosec
+		"attr": func(s string) interface{} { return template.HTMLAttr(s) }, //nolint: gosec
 	}
 }
 
