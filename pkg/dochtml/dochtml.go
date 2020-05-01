@@ -11,8 +11,10 @@ import (
 
 // Write generataes the html for a specific package.
 func Write(w io.Writer, p *doc.Package) error { //nolint: funlen
+	fns := map[string]interface{}{
+		"sprig": func() interface{} { return sprig.FuncMap() },
+	}
 	exec := func(t *template.Template, err error) error {
-		fns := map[string]interface{}{"sprig": sprig.FuncMap()}
 		if err != nil {
 			return err
 		}
@@ -20,8 +22,8 @@ func Write(w io.Writer, p *doc.Package) error { //nolint: funlen
 		return t.Funcs(fns).Execute(w, p)
 	}
 
-	return exec(template.New("html").Parse(`
-{{ $desc = index (sprig.splitn .Doc "\n" 2) 0 }}
+	return exec(template.New("html").Funcs(fns).Parse(`
+{{ $desc := index (call sprig.splitList "\n" .Doc) 0 }}
 <!DOCTYPE html>
 <html lang="en">
   <head>
