@@ -1,14 +1,15 @@
-// Package tag creates a semver tag and pushes it.
+// Command tag creates a semver tag in the current git repo and pushes
+// it.
 //
-// The semver versioning scheme is v5.3.2 (vMajor.Minor.Patch).
+// The semver versioning scheme used is something like: v5.3.2
+// (ie vMajor.Minor.Patch).
 //
-// Tag reads the current git repository for the highest semver tag
-// currently in existence.  For the very first time when there is
-// no semver tag in the project, provide an exact tag instead of
-// using a relative tag.
+// Tag reads the current git repository for the highest semver and
+// based on the command line argument passed, it increments the patch,
+// minor or major version.
 //
-// Relative tags are "patch", "minor" and "major". When these commands
-// are used, the patch, minor and major verions are incremented.
+// An exact tag can also be provided for use with the very first
+// semver version.
 //
 // If no command is provided, the current highest semver tag is
 // printed.
@@ -17,10 +18,10 @@
 //
 // tag [options] (patch|minor|major|"exact-tag")
 // commands:
-//   patch -- increments the patch number.
-//   major -- increments the major number.
-//   minor -- increments the minor number.
-//   tag   -- update the tag to be this exactly.
+//   patch -- increments the patch version.
+//   major -- increments the major version.
+//   minor -- increments the minor version.
+//   tag   -- use this exact value.
 // options:
 //   -q       -- do not prompt for confirmation.
 //   -m <msg> -- the message to use with the tag.
@@ -187,17 +188,17 @@ func gitDir() string {
 
 func help() {
 	fmt.Print(`
-Tag creates a semver tag and pushes it.
+Tag creates a semver tag in the current git repo and pushes it.
 
-The semver versioning scheme is v5.3.2 (vMajor.Minor.Patch).
+The semver versioning scheme used is something like: v5.3.2
+(ie vMajor.Minor.Patch).
 
-Tag reads the current git repository for the highest semver tag
-currently in existence.  For the very first time when there is
-no semver tag in the project, provide an exact tag instead of
-using a relative tag.
+Tag reads the current git repository for the highest semver and
+based on the command line argument passed, it increments the patch,
+minor or major version.
 
-Relative tags are "patch", "minor" and "major". When these commands
-are used, the patch, minor and major verions are incremented.
+An exact tag can also be provided for use with the very first
+semver version.
 
 If no command is provided, the current highest semver tag is
 printed.
@@ -209,13 +210,13 @@ func usage() {
 	fmt.Print(`
 Usage:
 
-tag [options] (patch|minor|major|<tag>)
+tag [options] (patch|minor|major|"exact-tag")
 
 commands:
-  patch -- increments the patch number.
-  major -- increments the major number.
-  minor -- increments the minor number.
-  <tag> -- update the tag to be this exactly.
+  patch -- increments the patch version.
+  major -- increments the major version.
+  minor -- increments the minor version.
+  tag   -- use this exact value.
 
 options:
   -q       -- do not prompt for confirmation.
