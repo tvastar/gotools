@@ -1,5 +1,12 @@
-// Command godochtml converts any packages it is given into go
-// documentation.
+// Command godochtml generates package documentation as HTML.
+//
+// The output is very close to (but not exactly same as) godoc. The
+// generated HTML is simple static HTML but includes syntax
+// highlighting.
+//
+// Usage: godochtml "package or package directory"
+//
+// The generated HTML is written to console.
 package main
 
 import (
@@ -17,21 +24,29 @@ import (
 )
 
 func main() {
+	flag.CommandLine.Usage = help
+	h := flag.Bool("h", false, "help")
 	flag.Parse()
-	if err := docgen(); err != nil {
+
+	if *h || flag.Arg(0) == "" {
+		help()
+		return
+	}
+
+	if err := docgen(flag.Arg(0)); err != nil {
 		fmt.Fprintf(os.Stderr, "godochtml: %v\n", err)
 		os.Exit(1)
 	}
 }
 
-func docgen() error {
+func docgen(pattern string) error {
 	mode := packages.NeedName | packages.NeedFiles |
 		packages.NeedCompiledGoFiles | packages.NeedDeps |
 		packages.NeedImports | packages.NeedTypes |
 		packages.NeedTypesSizes | packages.NeedSyntax |
 		packages.NeedTypesInfo
 	cfg := &packages.Config{Mode: mode, Tests: true, Fset: token.NewFileSet()}
-	pkgs, err := packages.Load(cfg, flag.Args()...)
+	pkgs, err := packages.Load(cfg, pattern)
 	if err != nil {
 		return err
 	}
@@ -62,10 +77,20 @@ func docgen() error {
 
 		p.Examples = doc.Examples(files...)
 
-		if err := dochtml.Write(os.Stdout, p, cfg.Fset); err != nil {
+		if err := dochtml.Write(os.Stdout, p, cfg.Fset, ""); err != nil {
 			return err
 		}
 	}
 
 	return nil
+}
+
+func help() {
+	fmt.Print(`
+Usage: godochtml <pkg_name>
+
+pkg_name can be a local directory or an import path.
+
+The generated HTML is written to console.
+`)
 }

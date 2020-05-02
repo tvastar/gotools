@@ -2,143 +2,32 @@
 package dochtml
 
 import (
-	"bytes"
 	"go/doc"
-	"go/format"
 	"go/token"
 	"html/template"
 	"io"
-	"strings"
-
-	"golang.org/x/net/html"
-	"golang.org/x/net/html/atom"
-
-	"github.com/Masterminds/sprig"
-	"github.com/alecthomas/chroma"
-	"github.com/alecthomas/chroma/formatters"
-	"github.com/alecthomas/chroma/lexers"
-	"github.com/alecthomas/chroma/styles"
 )
 
-func highlightCode(s string) string {
-	lexer := lexers.Get("go")
-	style, err := styles.Get("arduino").Builder().
-		Add(chroma.Background, "#333 bg:#ffffff00").Build()
+// Write generates the html for a specific package using the provided
+// template.  If no template is provided, the default template is
+// chosen..
+func Write(w io.Writer, p *doc.Package, fset *token.FileSet, tpl string) error {
+	if tpl == "" {
+		tpl = DefaultTemplate()
+	}
+
+	fns := &Functions{p, fset}
+	t, err := template.New("html").Funcs(fns.Map()).Parse(tpl)
 	if err != nil {
-		return s
+		return err
 	}
-	formatter := formatters.Get("html")
-	if formatter == nil {
-		formatter = formatters.Fallback
-	}
-	iter, err := lexer.Tokenise(nil, s)
-	if err != nil {
-		return s
-	}
-	var buf bytes.Buffer
-	if err = formatter.Format(&buf, style, iter); err != nil {
-		return s
-	}
-	return buf.String()
+	return t.Execute(w, p)
 }
 
-func highlightPre(s string) string {
-	root := &html.Node{Type: html.ElementNode, DataAtom: atom.Div, Data: "div"}
-	nn, err := html.ParseFragment(strings.NewReader(s), root)
-	if err != nil {
-		return s
-	}
-	for _, n := range nn {
-		root.AppendChild(n)
-	}
-	var visit func(*html.Node)
-	visit = func(n *html.Node) {
-		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			visit(c)
-		}
-		if n.DataAtom != atom.Pre {
-			return
-		}
-		data := n.FirstChild.Data
-		nn, err = html.ParseFragment(strings.NewReader(highlightCode(data)), nil)
-		if err != nil {
-			return
-		}
-		n.Data = "div"
-		n.DataAtom = atom.Div
-		n.RemoveChild(n.FirstChild)
-		for _, nx := range nn {
-			n.AppendChild(nx)
-		}
-	}
-	visit(root)
-	var result bytes.Buffer
-	if err := html.Render(&result, root); err != nil {
-		return s
-	}
-	return result.String()
-}
-
-func docFunctions() map[string]interface{} {
-	return map[string]interface{}{
-		"synopsis": doc.Synopsis,
-		"toHTML": func(s string) string {
-			var buf bytes.Buffer
-			doc.ToHTML(&buf, s, nil)
-			return highlightPre(buf.String())
-		},
-	}
-}
-
-func unsafeFunctions() map[string]interface{} {
-	return map[string]interface{}{
-		"html": func(s string) interface{} { return template.HTML(s) }, //nolint: gosec
-		"js":   func(s string) interface{} { return template.JS(s) },   //nolint: gosec
-		"css":  func(s string) interface{} { return template.CSS(s) },
-		"url":  func(s string) interface{} { return template.URL(s) },      //nolint: gosec
-		"attr": func(s string) interface{} { return template.HTMLAttr(s) }, //nolint: gosec
-	}
-}
-
-func astFunctions(fset *token.FileSet) func() map[string]interface{} {
-	return func() map[string]interface{} {
-		return map[string]interface{}{
-			"text": func(node interface{}) string {
-				var buf bytes.Buffer
-				if err := format.Node(&buf, fset, node); err != nil {
-					return err.Error()
-				}
-				return buf.String()
-			},
-			"html": func(node interface{}) interface{} {
-				var buf bytes.Buffer
-				if err := format.Node(&buf, fset, node); err != nil {
-					return err
-				}
-				return template.HTML(highlightCode(buf.String())) //nolint: gosec
-			},
-		}
-	}
-}
-
-// Write generataes the html for a specific package.
+// DefaultTemplate returns the default HTML template used by godochtml.
 //nolint: lll, funlen
-func Write(w io.Writer, p *doc.Package, fset *token.FileSet) error {
-	fns := map[string]interface{}{
-		"ast":    astFunctions(fset),
-		"doc":    docFunctions,
-		"sprig":  func() interface{} { return sprig.FuncMap() },
-		"unsafe": unsafeFunctions,
-	}
-	exec := func(t *template.Template, err error) error {
-		if err != nil {
-			return err
-		}
-
-		return t.Funcs(fns).Execute(w, p)
-	}
-
-	return exec(template.New("html").Funcs(fns).Parse(`
+func DefaultTemplate() string {
+	return `
 {{- $synopsis := call doc.synopsis .Doc -}}
 {{- $overview := call doc.toHTML .Doc -}}
 <!DOCTYPE html>
@@ -186,6 +75,9 @@ func Write(w io.Writer, p *doc.Package, fset *token.FileSet) error {
       #pkg-index > ul > li, #pkg-examples > ul > li { list-style: none; }
       #pkg-index > ul > ul > li { list-style-type: circle; }
       a { text-decoration: none; color: #375eab; }
+      details > summary { color: #375eab; margin: 10px 0; }
+
+      {{ highlighter.Styles }}
     </style>
   </head>
   <body>
@@ -220,7 +112,84 @@ func Write(w io.Writer, p *doc.Package, fset *token.FileSet) error {
        {{ end }}
     {{ end }}
     </div>
+    <div id="pkg-vars">
+    {{ if .Vars}}<h4>Variables</h4>
+       {{ range .Vars }}
+         {{ call ast.html .Decl }}
+         <p>{{ call unsafe.html (call doc.toHTML .Doc)}}</p>
+       {{ end }}
+    {{ end }}
+    </div>
+    {{ range .Funcs }}<h3 id="{{.Name}}">func {{.Name}}</h3>
+       {{ call ast.html .Decl }}
+       <p>{{ call unsafe.html (call doc.toHTML .Doc)}}</p>
+       {{ range .Examples }}
+          <details>
+            {{ if .Name }}<summary>Example ({{.Name}})</summary>
+            {{ else }}<summary>Example</summary>
+            {{ end }}
+            <p>Code:</p>
+            {{ call ast.html .Code }}
+            {{ if .Output }}<p>Output:</p><pre>{{ .Output }}</pre>{{ end }}
+            <p>{{ call unsafe.html (call doc.toHTML .Doc)}}</p>
+          </details>
+       {{ end }}
+    {{ end }}
+    {{ range .Types }}<h3 id="{{.Name}}">type {{.Name}}</h3>
+       {{ call ast.html .Decl }}
+       <p>{{ call unsafe.html (call doc.toHTML .Doc)}}</p>
+       {{ range .Examples }}
+          <details>
+            {{ if .Name }}<summary>Example ({{.Name}})</summary>
+            {{ else }}<summary>Example</summary>
+            {{ end }}
+            <p>Code:</p>
+            {{ call ast.html .Code }}
+            {{ if .Output }}<p>Output:</p><pre>{{ .Output }}</pre>{{ end }}
+            <p>{{ call unsafe.html (call doc.toHTML .Doc)}}</p>
+          </details>
+       {{ end }}
+       {{ range .Consts }}
+         {{ call ast.html .Decl }}
+         <p>{{ call unsafe.html (call doc.toHTML .Doc)}}</p>
+       {{ end }}
+       {{ range .Vars }}
+         {{ call ast.html .Decl }}
+         <p>{{ call unsafe.html (call doc.toHTML .Doc)}}</p>
+       {{ end }}
+       {{ range .Funcs }}<h3 id="{{.Name}}">func {{if .Recv}}({{.Recv}}){{end}} {{.Name}}</h3>
+         {{ call ast.html .Decl }}
+         <p>{{ call unsafe.html (call doc.toHTML .Doc)}}</p>
+         {{ range .Examples }}
+            <details>
+              {{ if .Name }}<summary>Example ({{.Name}})</summary>
+              {{ else }}<summary>Example</summary>
+              {{ end }}
+              <p>Code:</p>
+              {{ call ast.html .Code }}
+              {{ if .Output }}<p>Output:</p><pre>{{ .Output }}</pre>{{ end }}
+              <p>{{ call unsafe.html (call doc.toHTML .Doc)}}</p>
+            </details>
+         {{ end }}
+       {{ end }}
+       {{ range .Methods }}
+         <h3 id="{{.Name}}">func {{if .Recv}}({{.Recv}}){{end}} {{.Name}}</h3>
+         {{ call ast.html .Decl }}
+         <p>{{ call unsafe.html (call doc.toHTML .Doc)}}</p>
+         {{ range .Examples }}
+            <details>
+              {{ if .Name }}<summary>Example ({{.Name}})</summary>
+              {{ else }}<summary>Example</summary>
+              {{ end }}
+              <p>Code:</p>
+              {{ call ast.html .Code }}
+              {{ if .Output }}<p>Output:</p><pre>{{ .Output }}</pre>{{ end }}
+              <p>{{ call unsafe.html (call doc.toHTML .Doc)}}</p>
+            </details>
+         {{ end }}
+       {{ end }}
+    {{ end }}
   </body>
 </html>
-`))
+`
 }
