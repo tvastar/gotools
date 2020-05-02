@@ -8,9 +8,76 @@ import (
 	"go/token"
 	"html/template"
 	"io"
+	"strings"
+
+	"golang.org/x/net/html"
+	"golang.org/x/net/html/atom"
 
 	"github.com/Masterminds/sprig"
+	"github.com/alecthomas/chroma"
+	"github.com/alecthomas/chroma/formatters"
+	"github.com/alecthomas/chroma/lexers"
+	"github.com/alecthomas/chroma/styles"
 )
+
+func highlightCode(s string) string {
+	lexer := lexers.Get("go")
+	style, err := styles.Get("arduino").Builder().
+		Add(chroma.Background, "#333 bg:#ffffff00").Build()
+	if err != nil {
+		return s
+	}
+	formatter := formatters.Get("html")
+	if formatter == nil {
+		formatter = formatters.Fallback
+	}
+	iter, err := lexer.Tokenise(nil, s)
+	if err != nil {
+		return s
+	}
+	var buf bytes.Buffer
+	if err = formatter.Format(&buf, style, iter); err != nil {
+		return s
+	}
+	return buf.String()
+}
+
+func highlightPre(s string) string {
+	root := &html.Node{Type: html.ElementNode, DataAtom: atom.Div, Data: "div"}
+	nn, err := html.ParseFragment(strings.NewReader(s), root)
+	if err != nil {
+		return s
+	}
+	for _, n := range nn {
+		root.AppendChild(n)
+	}
+	var visit func(*html.Node)
+	visit = func(n *html.Node) {
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			visit(c)
+		}
+		if n.DataAtom != atom.Pre {
+			return
+		}
+		data := n.FirstChild.Data
+		nn, err = html.ParseFragment(strings.NewReader(highlightCode(data)), nil)
+		if err != nil {
+			return
+		}
+		n.Data = "div"
+		n.DataAtom = atom.Div
+		n.RemoveChild(n.FirstChild)
+		for _, nx := range nn {
+			n.AppendChild(nx)
+		}
+	}
+	visit(root)
+	var result bytes.Buffer
+	if err := html.Render(&result, root); err != nil {
+		return s
+	}
+	return result.String()
+}
 
 func docFunctions() map[string]interface{} {
 	return map[string]interface{}{
@@ -18,7 +85,7 @@ func docFunctions() map[string]interface{} {
 		"toHTML": func(s string) string {
 			var buf bytes.Buffer
 			doc.ToHTML(&buf, s, nil)
-			return buf.String()
+			return highlightPre(buf.String())
 		},
 	}
 }
@@ -33,23 +100,32 @@ func unsafeFunctions() map[string]interface{} {
 	}
 }
 
-func astFunctions() map[string]interface{} {
-	return map[string]interface{}{
-		"text": func(node interface{}) string {
-			var buf bytes.Buffer
-			if err := format.Node(&buf, token.NewFileSet(), node); err != nil {
-				return err.Error()
-			}
-			return buf.String()
-		},
+func astFunctions(fset *token.FileSet) func() map[string]interface{} {
+	return func() map[string]interface{} {
+		return map[string]interface{}{
+			"text": func(node interface{}) string {
+				var buf bytes.Buffer
+				if err := format.Node(&buf, fset, node); err != nil {
+					return err.Error()
+				}
+				return buf.String()
+			},
+			"html": func(node interface{}) interface{} {
+				var buf bytes.Buffer
+				if err := format.Node(&buf, fset, node); err != nil {
+					return err
+				}
+				return template.HTML(highlightCode(buf.String())) //nolint: gosec
+			},
+		}
 	}
 }
 
 // Write generataes the html for a specific package.
 //nolint: lll, funlen
-func Write(w io.Writer, p *doc.Package) error {
+func Write(w io.Writer, p *doc.Package, fset *token.FileSet) error {
 	fns := map[string]interface{}{
-		"ast":    astFunctions,
+		"ast":    astFunctions(fset),
 		"doc":    docFunctions,
 		"sprig":  func() interface{} { return sprig.FuncMap() },
 		"unsafe": unsafeFunctions,
@@ -134,6 +210,14 @@ func Write(w io.Writer, p *doc.Package) error {
       <ul>
         {{ range .Examples }}<li><a href="#{{.Name}}">{{ .Name }}</a></li>{{ end }}
       </ul>
+    {{ end }}
+    </div>
+    <div id="pkg-consts">
+    {{ if .Consts}}<h4>Constants</h4>
+       {{ range .Consts }}
+         {{ call ast.html .Decl }}
+         <p>{{ call unsafe.html (call doc.toHTML .Doc)}}</p>
+       {{ end }}
     {{ end }}
     </div>
   </body>
