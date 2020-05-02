@@ -62,7 +62,7 @@ func docgen() error {
 
 		p.Examples = doc.Examples(files...)
 
-		if err := dochtml.Write(os.Stdout, p); err != nil {
+		if err := dochtml.Write(os.Stdout, p, cfg.Fset); err != nil {
 			return err
 		}
 	}
