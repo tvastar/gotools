@@ -69,7 +69,7 @@ func docgen(pattern string, linker *dochtml.FileLinker) error {
 	}
 
 	if n := packages.PrintErrors(pkgs); n > 0 {
-		return fmt.Errorf("%d errors", n)
+		fmt.Fprintf(os.Stderr, "%d errors, continuing...\n", n)
 	}
 
 	// filesets tracks all files for a given package path name.
