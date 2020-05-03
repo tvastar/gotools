@@ -1,4 +1,3 @@
-//nolint: lll
 // Command godochtml generates package documentation as HTML.
 //
 // The output is very close to (but not exactly same as) godoc. The
@@ -12,7 +11,9 @@
 //
 // Example:
 //
-//     godochtml -src 'github.com/([^/]*)/([^/]*)(.*)=https://github.com/$1/$2/blob/master$3' github.com/tvastar/gotools/cmd/godochtml
+//     godochtml \
+//       -src 'github.com/([^/]*)/([^/]*)(.*)=https://github.com/$1/$2/blob/master$3' \
+//       github.com/tvastar/gotools/cmd/godochtml
 //
 // The generated HTML is written to console.
 package main

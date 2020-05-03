@@ -17,8 +17,7 @@
 //
 // Options:
 //
-//   -go string
-//     	go binary full path
+//   -go string -- path of the "go" binary
 //   -h	help
 //   -o string install directory (default "./bin")
 //
@@ -34,7 +33,7 @@ import (
 
 func main() {
 	output := flag.String("o", "./bin", "install directory")
-	gobin := flag.String("go", "", "go binary full path")
+	gobin := flag.String("go", "", `path of the "go" binary`)
 	h := flag.Bool("h", false, "help")
 
 	flag.CommandLine.Usage = usage

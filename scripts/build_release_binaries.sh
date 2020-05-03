@@ -8,7 +8,7 @@ function build() {
     GOARCH=$1 GOOS=$2 go build -o ./bin/"$2"_"$1"/. ./...
 
     pushd ./bin/"$2"_"$1"
-    tar cvf ../"$2"_"$1".zip *
+    tar -czvf ../"$2"_"$1".tar.gz *
     popd
 }
 
