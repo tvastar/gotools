@@ -11,12 +11,12 @@ import (
 // Write generates the html for a specific package using the provided
 // template.  If no template is provided, the default template is
 // chosen..
-func Write(w io.Writer, p *doc.Package, fset *token.FileSet, tpl string) error {
+func Write(w io.Writer, p *doc.Package, fset *token.FileSet, tpl string, linker *FileLinker) error {
 	if tpl == "" {
 		tpl = DefaultTemplate()
 	}
 
-	fns := &Functions{p, fset}
+	fns := &Functions{p, fset, linker}
 	t, err := template.New("html").Funcs(fns.Map()).Parse(tpl)
 	if err != nil {
 		return err
@@ -90,10 +90,10 @@ func DefaultTemplate() string {
       <ul>
       {{ if .Consts }}<li><a href="#pkg-consts">Constants</a></li>{{ end }}
       {{ if .Vars }}<li><a href="#pkg-vars">Variables</a></li>{{ end }}
-      {{ range .Funcs }}<li><a href="#{{.Name}}">{{ call ast.text .Decl }}</a></li>
+      {{ range .Funcs }}<li><a href="#{{.Recv}}{{if .Recv}}.{{end}}{{.Name}}">{{ call ast.text .Decl }}</a></li>
       {{ end }}{{ range .Types }}<li><a href="#{{.Name}}">type {{ .Name }}</a></li>
         {{ if .Funcs }}<ul>{{ range .Funcs }}<li><a href="#{{.Name}}">{{ call ast.text .Decl }}</a></li>{{ end }}</ul>{{ end }}
-        {{ if .Methods }}<ul>{{ range .Methods }}<li><a href="#{{.Name}}">{{ call ast.text .Decl }}</a></li>{{ end }}</ul>{{ end }}
+        {{ if .Methods }}<ul>{{ range .Methods }}<li><a href="#{{.Recv}}{{if .Recv}}.{{end}}{{.Name}}">{{ call ast.text .Decl }}</a></li>{{ end }}</ul>{{ end }}
       {{ end }}
       </ul>
     </div>
@@ -120,12 +120,12 @@ func DefaultTemplate() string {
        {{ end }}
     {{ end }}
     </div>
-    {{ range .Funcs }}<h3 id="{{.Name}}">func {{.Name}}</h3>
+    {{ range .Funcs }}<h3 id="{{.Recv}}{{if .Recv}}.{{end}}{{.Name}}">func {{call ast.link .Decl .Name}}</h3>
        {{ call ast.html .Decl }}
        <p>{{ call unsafe.html (call doc.toHTML .Doc)}}</p>
        {{ range .Examples }}
           <details>
-            {{ if .Name }}<summary>Example ({{.Name}})</summary>
+            {{ if .Name }}<summary>Example ({{call ast.link .Code .Name}})</summary>
             {{ else }}<summary>Example</summary>
             {{ end }}
             <p>Code:</p>
@@ -135,7 +135,7 @@ func DefaultTemplate() string {
           </details>
        {{ end }}
     {{ end }}
-    {{ range .Types }}<h3 id="{{.Name}}">type {{.Name}}</h3>
+    {{ range .Types }}<h3 id="{{.Name}}">type {{call ast.link .Decl .Name}}</h3>
        {{ call ast.html .Decl }}
        <p>{{ call unsafe.html (call doc.toHTML .Doc)}}</p>
        {{ range .Examples }}
@@ -157,7 +157,7 @@ func DefaultTemplate() string {
          {{ call ast.html .Decl }}
          <p>{{ call unsafe.html (call doc.toHTML .Doc)}}</p>
        {{ end }}
-       {{ range .Funcs }}<h3 id="{{.Name}}">func {{if .Recv}}({{.Recv}}){{end}} {{.Name}}</h3>
+       {{ range .Funcs }}<h3 id="{{.Recv}}{{if .Recv}}.{{end}}{{.Name}}">func {{if .Recv}}({{.Recv}}){{end}} {{call ast.link .Decl .Name}}</h3>
          {{ call ast.html .Decl }}
          <p>{{ call unsafe.html (call doc.toHTML .Doc)}}</p>
          {{ range .Examples }}
@@ -173,7 +173,7 @@ func DefaultTemplate() string {
          {{ end }}
        {{ end }}
        {{ range .Methods }}
-         <h3 id="{{.Name}}">func {{if .Recv}}({{.Recv}}){{end}} {{.Name}}</h3>
+         <h3 id="{{.Recv}}{{if .Recv}}.{{end}}{{.Name}}">func {{if .Recv}}({{.Recv}}){{end}} {{call ast.link .Decl .Name}}</h3>
          {{ call ast.html .Decl }}
          <p>{{ call unsafe.html (call doc.toHTML .Doc)}}</p>
          {{ range .Examples }}

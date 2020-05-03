@@ -2,10 +2,13 @@ package dochtml
 
 import (
 	"bytes"
+	"fmt"
+	"go/ast"
 	"go/doc"
 	"go/format"
 	"go/token"
 	"html/template"
+	"path/filepath"
 
 	"github.com/Masterminds/sprig"
 )
@@ -14,6 +17,7 @@ import (
 type Functions struct {
 	*doc.Package
 	*token.FileSet
+	*FileLinker
 }
 
 // Map returns the default function map
@@ -48,6 +52,21 @@ func (f *Functions) astFunctions() map[string]interface{} {
 		"html": func(node interface{}) (template.HTML, error) {
 			s, err := format(node)
 			return template.HTML(highlight.String(s)), err //nolint: gosec
+		},
+		"link": func(node ast.Node, name string) (interface{}, error) {
+			pos := f.FileSet.Position(node.Pos())
+			if pos.Filename == "" {
+				return name, nil
+			}
+			fname := filepath.Join(f.Package.ImportPath, filepath.Base(pos.Filename))
+			s := fmt.Sprintf("%s#L%d", fname, pos.Line)
+			if url, ok := f.FileLinker.URL(s); ok {
+				href := template.HTMLEscapeString(url)
+				name = template.HTMLEscapeString(name)
+				r := `<a href="` + href + `">` + name + `</a>`
+				return template.HTML(r), nil //nolint: gosec
+			}
+			return name, nil
 		},
 	}
 }

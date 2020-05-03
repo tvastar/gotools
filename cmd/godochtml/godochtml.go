@@ -1,10 +1,18 @@
+//nolint: lll
 // Command godochtml generates package documentation as HTML.
 //
 // The output is very close to (but not exactly same as) godoc. The
 // generated HTML is simple static HTML but includes syntax
 // highlighting.
 //
-// Usage: godochtml "package or package directory"
+// Usage: godochtml [options] "package or package directory"
+//
+//    -src fileregexp=url -- use this to make types and functions
+//  links.
+//
+// Example:
+//
+//     godochtml -src 'github.com/([^/]*)/([^/]*)(.*)=https://github.com/$1/$2/blob/master$3' github.com/tvastar/gotools/cmd/godochtml
 //
 // The generated HTML is written to console.
 package main
@@ -24,8 +32,16 @@ import (
 )
 
 func main() {
+	l := &dochtml.FileLinker{}
+
 	flag.CommandLine.Usage = help
 	h := flag.Bool("h", false, "help")
+	flag.Var(l, "src", `source url map
+
+Source urls can be mapped using find_regexp=replacement_pattern syntax.
+For example, the following argument maps github import paths to github source urls:
+   -src 'github.com/([^/]*)/([^/]*)(.*)=https://github.com/$1/$2/blob/master$3'
+`)
 	flag.Parse()
 
 	if *h || flag.Arg(0) == "" {
@@ -33,13 +49,13 @@ func main() {
 		return
 	}
 
-	if err := docgen(flag.Arg(0)); err != nil {
+	if err := docgen(flag.Arg(0), l); err != nil {
 		fmt.Fprintf(os.Stderr, "godochtml: %v\n", err)
 		os.Exit(1)
 	}
 }
 
-func docgen(pattern string) error {
+func docgen(pattern string, linker *dochtml.FileLinker) error {
 	mode := packages.NeedName | packages.NeedFiles |
 		packages.NeedCompiledGoFiles | packages.NeedDeps |
 		packages.NeedImports | packages.NeedTypes |
@@ -69,15 +85,15 @@ func docgen(pattern string) error {
 		}
 	}
 
-	for pkgPath, files := range filesets {
-		p, err := doc.NewFromFiles(cfg.Fset, files, pkgPath)
+	for _, files := range filesets {
+		p, err := doc.NewFromFiles(cfg.Fset, files, pattern)
 		if err != nil {
 			return err
 		}
 
 		p.Examples = doc.Examples(files...)
 
-		if err := dochtml.Write(os.Stdout, p, cfg.Fset, ""); err != nil {
+		if err := dochtml.Write(os.Stdout, p, cfg.Fset, "", linker); err != nil {
 			return err
 		}
 	}
@@ -93,4 +109,5 @@ pkg_name can be a local directory or an import path.
 
 The generated HTML is written to console.
 `)
+	flag.PrintDefaults()
 }
