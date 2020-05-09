@@ -5,7 +5,7 @@ function build() {
     export GOOS=$2
     
     mkdir -p ./bin/"$2"_"$1"
-    GOARCH=$1 GOOS=$2 go build -o ./bin/"$2"_"$1"/. ./...
+    CGO_ENABLED=0 GOARCH=$1 GOOS=$2 go build -o ./bin/"$2"_"$1"/. ./...
 
     pushd ./bin/"$2"_"$1"
     tar -czvf ../"$2"_"$1".tar.gz *
