@@ -15,11 +15,6 @@ function build() {
 }
 
 set -ex
-
-if [[ - n "$CI" ]]; then
-    sudo apt-get install gcc-multilib g++-multilib
-fi
-
 build 386 linux 0
 build amd64 linux 0
 build 386 darwin 1
