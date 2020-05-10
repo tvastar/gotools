@@ -29,8 +29,5 @@ func (p *repeat) NextPath(ctx context.Context) (string, error) {
 }
 
 func (p *repeat) Close() error {
-	if c, ok := p.Stream.(io.Closer); ok {
-		return c.Close()
-	}
-	return nil
+	return Close(p.Stream)
 }

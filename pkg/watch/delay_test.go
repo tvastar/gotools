@@ -28,7 +28,22 @@ func TestDelaySmallDelay(t *testing.T) {
 	}
 }
 
-func TestDelayCancelation(t *testing.T) {
+func TestDelayCancelationClose(t *testing.T) {
+	s := newFixedStream([]string{"hello", "boo", "world", "hoo"})
+	delayed := watch.Delay(time.Millisecond*5, s)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond)
+	defer cancel()
+
+	if s, err := delayed.NextPath(ctx); err == nil || err != ctx.Err() {
+		t.Fatal("unexpected delay", s, err)
+	}
+
+	if err := watch.Close(delayed); err != nil {
+		t.Error("close failed", err)
+	}
+}
+
+func TestDelayCancelationFetchAll(t *testing.T) {
 	s := newFixedStream([]string{"hello", "boo", "world", "hoo"})
 	expected := []string{"hello", "boo", "world", "hoo"}
 	delayed := watch.Delay(time.Millisecond*5, s)

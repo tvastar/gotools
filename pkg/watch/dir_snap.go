@@ -55,6 +55,7 @@ func (d *dirsnap) walk() {
 	d.closed <- err
 }
 
-func (d *dirsnap) Close() {
+func (d *dirsnap) Close() error {
 	d.closed <- io.EOF
+	return nil
 }

@@ -1,9 +1,6 @@
 package watch
 
-import (
-	"context"
-	"io"
-)
+import "context"
 
 // Filter only returns paths matching the allow filter.
 func Filter(allow func(path string) bool, s Stream) Stream {
@@ -26,8 +23,5 @@ func (f filter) NextPath(ctx context.Context) (string, error) {
 }
 
 func (f filter) Close() error {
-	if closer, ok := f.s.(io.Closer); ok {
-		return closer.Close()
-	}
-	return nil
+	return Close(f.s)
 }
