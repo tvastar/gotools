@@ -17,8 +17,6 @@ function build() {
 set -ex
 build 386 linux 0
 build amd64 linux 0
-# github doesn't like 386 builds.
-# build 386 darwin 1
 build amd64 darwin 1
 build 386 windows 1
 build amd64 windows 1

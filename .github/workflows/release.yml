@@ -50,16 +50,6 @@ jobs:
           asset_path: ./bin/linux_amd64.tar.gz
           asset_name: linux_amd64.tar.gz
           asset_content_type: application/gzip
-      - name: Release Darwin 386
-        id: release_darwin_386
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./bin/darwin_386.tar.gz
-          asset_name: darwin_386.tar.gz
-          asset_content_type: application/gzip
       - name: Release Darwin AMD64
         id: release_darwin_amd64
         uses: actions/upload-release-asset@v1
