@@ -1,6 +1,6 @@
 // Package watch implements file watching utilities.
 //
-// 1. This is not concered with very large directories.
+// 1. This is not concerned with very large directories.
 // 2. The focus is on simplicity for use in build tools.
 // 3. Cross platform support would be abstracted into a singe API.
 // 4. Context-aware Streams-based API.
