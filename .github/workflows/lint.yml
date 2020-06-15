@@ -2,12 +2,15 @@ on: [pull_request]
 name: Lint
 jobs:
   lint:
-    runs-on: [ubuntu-latest, macos-latest]
+    strategy:
+      matrix:
+        platform: [ubuntu-latest]
+    runs-on: ${{ matrix.platform }}
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
     - name: Run lint
       uses: actions-contrib/golangci-lint@v1
       with:
-        golangci_lint_version: v1.24
+        golangci_lint_version: v1.27
 
