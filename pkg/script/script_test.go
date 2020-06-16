@@ -3,6 +3,7 @@ package script_test
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"os"
 
@@ -107,4 +108,21 @@ func ExamplePipe_if() {
 	// Output:
 	// world
 	// rightly succeeded
+}
+
+func ExampleFunc() {
+	spec := script.Pipe(
+		script.Cmd("echo", "hello"),
+		script.Func(func(ctx context.Context, r io.Reader, w io.Writer) error {
+			_, err := io.Copy(w, r)
+			return err
+		}),
+		script.Cmd("cat"),
+	)
+	err := script.Run(context.Background(), spec)
+	if err != nil {
+		fmt.Println("error", err)
+	}
+
+	// Output: hello
 }

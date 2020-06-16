@@ -6,6 +6,15 @@
 //     task := script.Cmd("echo", "hello")
 //     err := script.Run(context.Background(), task)
 //
+// A pure Go task can be created via script.Func:
+//
+//     task := script.Func(func(ctx context.Context, r io.Reader, w io.Writer) error {
+//         ...
+//         _, err := io.Copy(w, r)
+//         return err
+//     })
+//     err := script.Run(context.Background(), task)
+//
 // Tasks can be composed in sequence:
 //
 //     task := script.Sequence(
@@ -16,7 +25,7 @@
 //
 // This type of composition allows for expressions without having to
 // constantly check for errors.  A sequential task stops with an error
-// when one of its items fails.
+// when one of its tasks fails.
 //
 // The other types of control flow structures are "Parallel", "Or" and
 // "If".
@@ -30,12 +39,12 @@
 //      )
 //      err := script.Run(context.Background(), task)
 //
-// These can all be nested to express the intent.
-//
 // Tasks can also be piped to a file (or piped from a file) by just
-// using `File(path)` in a pipe.
+// using a file task `File(path)` in a pipe.
 //
 // Non shell tasks can be mingled within via the `Func(...)` method.
+// When the Func task is used in a Pipe, its input and output are
+// provided via the reader and writer arg.
 package script
 
 import (
@@ -139,8 +148,7 @@ func CmdWithLog(logger Logger, program string, args ...string) Task {
 	return &cmd{logger, program, args, os.Stdin, os.Stdout, os.Stderr, nil}
 }
 
-// Func runs a separate task function.  Note that this function cannot
-// participate in pipes and such.
-func Func(f func(ctx context.Context) error) Task {
-	return &fn{f, false}
+// Func runs a task function.
+func Func(f func(ctx context.Context, r io.Reader, w io.Writer) error) Task {
+	return &fn{f, nil, os.Stdin, os.Stdout}
 }
